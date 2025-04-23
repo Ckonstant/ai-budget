@@ -6,13 +6,14 @@ import { revalidatePath } from "next/cache";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import aj from "@/lib/arcjet";
 import { request } from "@arcjet/next";
+import { serializeData } from "@/lib/serializer";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-const serializeAmount = (obj) => ({
-  ...obj,
-  amount: obj.amount.toNumber(),
-});
+const serializeAmount = (obj) => {
+  if (!obj) return null;
+  return serializeData(obj);
+};
 
 // Create Transaction
 export async function createTransaction(data) {
@@ -100,25 +101,29 @@ export async function createTransaction(data) {
 }
 
 export async function getTransaction(id) {
-  const { userId } = await auth();
-  if (!userId) throw new Error("Unauthorized");
+  try {
+    const { userId } = await auth();
+    if (!userId) throw new Error("Unauthorized");
 
-  const user = await db.user.findUnique({
-    where: { clerkUserId: userId },
-  });
+    const user = await db.user.findUnique({
+      where: { clerkUserId: userId },
+    });
 
-  if (!user) throw new Error("User not found");
+    if (!user) throw new Error("User not found");
 
-  const transaction = await db.transaction.findUnique({
-    where: {
-      id,
-      userId: user.id,
-    },
-  });
+    const transaction = await db.transaction.findUnique({
+      where: {
+        id,
+        userId: user.id,
+      },
+    });
 
-  if (!transaction) throw new Error("Transaction not found");
+    if (!transaction) throw new Error("Transaction not found");
 
-  return serializeAmount(transaction);
+    return serializeAmount(transaction);
+  } catch (error) {
+    throw new Error(error.message);
+  }
 }
 
 export async function updateTransaction(id, data) {

@@ -9,16 +9,21 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  clerkUserId   String    @unique // clerk user id
-  email         String    @unique
-  name          String?
-  imageUrl      String?
-  transactions  Transaction[]
-  accounts      Account[]
-  budgets       Budget[]
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id           String        @id @default(uuid())
+  clerkUserId  String        @unique
+  email        String        @unique
+  name         String?
+  imageUrl     String?
+  transactions Transaction[]
+  accounts     Account[]
+  budgets      Budget[]
+  settings     UserSettings?
+  // Add metadata field to store JSON data
+  metadata     Json?
+  financialGoals FinancialGoal[]
+  notes        Note[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
 
   @@map("users")
 }
@@ -66,16 +71,76 @@ model Transaction {
 
 
 model Budget {
-  id          String       @id @default(uuid())
-  amount      Decimal
-  lastAlertSent DateTime?  // Track when the last alert was sent
-  userId      String       @unique
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  id           String    @id @default(cuid())
+  name         String
+  amount       Decimal   @db.Decimal(10, 2)
+  category     String
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  spentAmount  Decimal?  @default(0) @db.Decimal(10, 2)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([userId])
-  @@map("budgets")
+  @@index([category])
+}
+
+model UserSettings {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  // General settings
+  dateFormat          String?   @default("MM/DD/YYYY")
+  language            String?   @default("en")
+  
+  // Appearance settings
+  theme               String?   @default("light")
+  animations          Boolean?  @default(true)
+  compactMode         Boolean?  @default(false)
+  
+  // Notification settings
+  emailNotifications  Boolean?  @default(true)
+  transactionAlerts   Boolean?  @default(true)
+  budgetAlerts        Boolean?  @default(true)
+  weeklyReport        Boolean?  @default(true)
+  
+  // Financial settings
+  currency            String?   @default("USD")
+  decimalPlaces       Int?      @default(2)
+  financialMonthStart Int?      @default(1)
+  defaultTaxRate      Float?    @default(0)
+  
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+model FinancialGoal {
+  id            String    @id @default(cuid())
+  name          String
+  type          String    // SAVINGS, EMERGENCY_FUND, DEBT_PAYOFF, HOME, CAR, RETIREMENT, EDUCATION, VACATION, CUSTOM
+  targetAmount  Decimal   @db.Decimal(10, 2)
+  currentAmount Decimal   @db.Decimal(10, 2) @default(0)
+  deadline      DateTime? // Optional deadline
+  description   String?   // Optional description
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Note {
+  id        String   @id @default(uuid())
+  title     String
+  content   String?  @db.Text
+  category  String?
+  labels    String[] @default([])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 enum TransactionType {

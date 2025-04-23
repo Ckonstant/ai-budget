@@ -1,10 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Pencil, Check, X } from "lucide-react";
-import useFetch from "@/hooks/use-fetch";
-import { toast } from "sonner";
-
+import { useCurrency } from "@/contexts/currency-context";
 import {
   Card,
   CardContent,
@@ -13,116 +9,55 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { updateBudget } from "@/actions/budget";
 
 export function BudgetProgress({ initialBudget, currentExpenses }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [newBudget, setNewBudget] = useState(
-    initialBudget?.amount?.toString() || ""
-  );
-
-  const {
-    loading: isLoading,
-    fn: updateBudgetFn,
-    data: updatedBudget,
-    error,
-  } = useFetch(updateBudget);
-
-  const percentUsed = initialBudget
-    ? (currentExpenses / initialBudget.amount) * 100
-    : 0;
-
-  const handleUpdateBudget = async () => {
-    const amount = parseFloat(newBudget);
-
-    if (isNaN(amount) || amount <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    await updateBudgetFn(amount);
-  };
-
-  const handleCancel = () => {
-    setNewBudget(initialBudget?.amount?.toString() || "");
-    setIsEditing(false);
-  };
-
-  useEffect(() => {
-    if (updatedBudget?.success) {
-      setIsEditing(false);
-      toast.success("Budget updated successfully");
-    }
-  }, [updatedBudget]);
-
-  useEffect(() => {
-    if (error) {
-      toast.error(error.message || "Failed to update budget");
-    }
-  }, [error]);
+  const { formatCurrency } = useCurrency();
+  
+  const { id, name, amount, category, spentAmount = 0 } = initialBudget;
+  
+  // Calculate the actual spent amount - use provided current expenses if available
+  const actualSpentAmount = currentExpenses !== undefined ? currentExpenses : Number(spentAmount || 0);
+  
+  // Calculate percentage used
+  const percentUsed = Math.min(100, (actualSpentAmount / Number(amount)) * 100);
+  
+  // Determine status based on percentage used
+  let status = "On Track";
+  let statusColor = "text-green-500 dark:text-green-400";
+  
+  if (percentUsed >= 90) {
+    status = "Over Budget";
+    statusColor = "text-red-500 dark:text-red-400";
+  } else if (percentUsed >= 75) {
+    status = "Warning";
+    statusColor = "text-yellow-500 dark:text-yellow-400";
+  }
+  
+  // Determine remaining amount
+  const remainingAmount = Math.max(0, Number(amount) - actualSpentAmount);
 
   return (
-    <Card>
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <div className="flex-1">
-          <CardTitle className="text-sm font-medium">
-            Monthly Budget (Default Account)
-          </CardTitle>
-          <div className="flex items-center gap-2 mt-1">
-            {isEditing ? (
-              <div className="flex items-center gap-2">
-                <Input
-                  type="number"
-                  value={newBudget}
-                  onChange={(e) => setNewBudget(e.target.value)}
-                  className="w-32"
-                  placeholder="Enter amount"
-                  autoFocus
-                  disabled={isLoading}
-                />
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleUpdateBudget}
-                  disabled={isLoading}
-                >
-                  <Check className="h-4 w-4 text-green-500" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={handleCancel}
-                  disabled={isLoading}
-                >
-                  <X className="h-4 w-4 text-red-500" />
-                </Button>
-              </div>
-            ) : (
-              <>
-                <CardDescription>
-                  {initialBudget
-                    ? `$${currentExpenses.toFixed(
-                        2
-                      )} of $${initialBudget.amount.toFixed(2)} spent`
-                    : "No budget set"}
-                </CardDescription>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setIsEditing(true)}
-                  className="h-6 w-6"
-                >
-                  <Pencil className="h-3 w-3" />
-                </Button>
-              </>
-            )}
+    <Card className="dark:bg-slate-900 dark:border-slate-800">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-start">
+          <div>
+            <CardTitle className="text-base dark:text-white">{name}</CardTitle>
+            <CardDescription className="text-xs dark:text-slate-400">
+              {category}
+            </CardDescription>
           </div>
+          <div className={`text-sm font-medium ${statusColor}`}>{status}</div>
         </div>
       </CardHeader>
       <CardContent>
-        {initialBudget && (
+        <div className="flex justify-between items-baseline mt-2 mb-1">
+          <div className="text-2xl font-semibold dark:text-white">{formatCurrency(remainingAmount)}</div>
+          <div className="text-sm text-slate-500 dark:text-slate-400">
+            of {formatCurrency(Number(amount))}
+          </div>
+        </div>
+
+        {percentUsed !== null && (
           <div className="space-y-2">
             <Progress
               value={percentUsed}
@@ -134,8 +69,9 @@ export function BudgetProgress({ initialBudget, currentExpenses }) {
                     ? "bg-yellow-500"
                     : "bg-green-500"
               }`}
+              className="dark:bg-slate-700"
             />
-            <p className="text-xs text-muted-foreground text-right">
+            <p className="text-xs text-muted-foreground text-right dark:text-slate-400">
               {percentUsed.toFixed(1)}% used
             </p>
           </div>
