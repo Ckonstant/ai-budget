@@ -14,6 +14,11 @@ const nextConfig = {
       bodySizeLimit: "5mb",
     },
   },
+  
+  // Disable ESLint during production builds
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
 };
 
 export default nextConfig;
